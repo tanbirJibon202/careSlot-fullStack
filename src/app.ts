@@ -13,6 +13,7 @@ import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
 import z, { success } from "zod";
 import { redisClient } from "./app/lib/redis";
+import crypto from "crypto";
 
 const app: Application = express();
 
@@ -34,17 +35,13 @@ app.use("/api/v1/auth", AuthRoutes);
 
 app.post("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await redisClient.set("forgot-password-otp:", "123456", {
-      expiration: {
-        type: "EX",
-        value: 60,
-      },
-    });
+    //  100000min > 999999  > 1000000 max
+    const otp = crypto.randomInt(100000, 1000000);
 
     res.status(httpStatus.OK).json({
       success: true,
       message: "Welcome to careSlot Backend",
-      data: null,
+      data: otp,
     });
   } catch (error) {
     console.log(error);
