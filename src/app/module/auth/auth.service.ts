@@ -20,7 +20,9 @@ import { googleClient } from "../../lib/googleAuth";
 import { TokenPayload } from "google-auth-library";
 import crypto from "crypto";
 import { redisClient } from "../../lib/redis";
-
+import { trasporter } from "../../lib/nodemailer";
+import ejs from "ejs";
+import path from "path";
 const registerPatient = async (payload: IRegisterPatientPayload) => {
   const { name, password, patient: patientData } = payload;
 
@@ -357,11 +359,35 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
 
   const otp = crypto.randomInt(100000, 1000000).toString();
   const key = `forgot-password-otp:${isUserExists.email}`;
+
+  const expirationSeconds = 5 * 60;
+
   await redisClient.set(key, otp, {
     expiration: {
       type: "EX",
-      value: 5 * 60,
+      value: expirationSeconds,
     },
+  });
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/forgot-password.ejs",
+  );
+
+  const templateData = {
+    name: isUserExists.name,
+    otp,
+    expirationMinutes: expirationSeconds / 60,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await trasporter.sendMail({
+    from: config.email_sender,
+    to: isUserExists.email,
+    subject: "Forgot Password",
+    // text: `Your OTP is ${otp}`,
+    html,
   });
 };
 
@@ -416,6 +442,24 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
   });
 
   await redisClient.del([key]);
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/reset-password-success.ejs",
+  );
+
+  const templateData = {
+    name: isUserExists.name,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await trasporter.sendMail({
+    from: config.email_sender,
+    to: isUserExists.email,
+    subject: "Password Changed",
+    html,
+  });
 };
 
 export const AuthService = {
