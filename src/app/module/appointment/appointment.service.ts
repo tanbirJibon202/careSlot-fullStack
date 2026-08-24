@@ -20,29 +20,97 @@ const bookAppointment = async () => {
         Authorization: bkashIdToken,
         "X-App-Key": config.bkash_app_key,
       },
-      body: JSON.stringify({      
-        mode: "0000",
+      body: JSON.stringify({
+        mode: "0011",
         payerReference: "0173499999",
         callbackURL: `${config.bkash_callback_url}//appointment/book-appointment/payment/callback`,
-        amount : "1200",
-        currency : "BDT",
-        intent : "sale",
-        merchantInvoiceNumber : ""
+        amount: "1200",
+        currency: "BDT",
+        intent: "sale",
+        merchantInvoiceNumber: "Inv0124",
       }),
     },
   );
-  
 
-  const bkashCreatePaymentResult = await bkashCreatePaymentResponse.json()
+  const bkashCreatePaymentResult = await bkashCreatePaymentResponse.json();
 
-  console.log(bkashCreatePaymentResult)
+  console.log(bkashCreatePaymentResult);
 
-  return bkashCreatePaymentResult
+  return bkashCreatePaymentResult;
+};
 
+const bookAppointmentCallback = async (query: Record<string, any>) => {
+  const paymentId = query.paymentID;
 
+  if (!paymentId) {
+    throw new Error("Payment Id Missing");
+  }
 
+  const status = query.status;
+
+  if (!status) {
+    throw new Error("Payment Status is Missing");
+  }
+
+  const bkashIdToken = await getBkashIdToken();
+
+  if (!bkashIdToken) {
+    throw new Error("No Bkash Access Token Found!");
+  }
+
+  const executedPaymentResponse = await fetch(
+    `${config.bkash_base_url}/tokenized/checkout/execute`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application / json",
+        Authorization: bkashIdToken,
+        "X-App-Key": config.bkash_app_key,
+      },
+      body: JSON.stringify({
+        paymentID: paymentId,
+      }),
+    },
+  );
+
+  const executePaymentResult = await executedPaymentResponse.json();
+
+  if (status === "success") {
+    return {
+      executePaymentResult,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
+    };
+  }
+
+  if (status === "success") {
+    return {
+      executePaymentResult,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
+    };
+  }
+
+  if (status === "failure") {
+    return {
+      executePaymentResult,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=failure`,
+    };
+  }
+
+  if (status === "cancel") {
+    return {
+      executePaymentResult,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=cancel`,
+    };
+  }
+
+  return {
+    executePaymentResult,
+    redirectUrl: `${config.frontend_url}/dashboard/my-appointments`,
+  };
 };
 
 export const AppointmentServices = {
   bookAppointment,
+  bookAppointmentCallback,
 };
