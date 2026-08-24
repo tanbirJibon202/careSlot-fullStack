@@ -15,6 +15,7 @@ import z, { success } from "zod";
 import { redisClient } from "./app/lib/redis";
 import crypto from "crypto";
 import { UserRoutes } from "./app/module/user/user.route";
+import { AppointmentRoutes } from "./app/module/appointment/appointment.route";
 
 const app: Application = express();
 
@@ -34,6 +35,7 @@ app.use(cookieParser());
 
 app.use("/api/v1/auth", AuthRoutes);
 app.use("/api/v1/user", UserRoutes);
+app.use("/api/v1/appointment", AppointmentRoutes);
 
 app.post("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {
