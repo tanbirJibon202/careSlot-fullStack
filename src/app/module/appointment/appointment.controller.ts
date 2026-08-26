@@ -12,7 +12,20 @@ const bookAppointment = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "User profile fetched successfully",
+    message: "Appointment Payment Initiated Successfully",
+    data: result,
+  });
+});
+
+const payAppointment = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  const user = req.user!;
+
+  const result = await AppointmentServices.payAppointment(payload, user);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Appointment Payment Initiated Successfully",
     data: result,
   });
 });
@@ -29,5 +42,6 @@ const bookAppointmentCallback = catchAsync(
 
 export const AppointmentController = {
   bookAppointment,
+  payAppointment,
   bookAppointmentCallback,
 };
