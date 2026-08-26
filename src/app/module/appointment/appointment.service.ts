@@ -70,7 +70,7 @@ const bookAppointment = async (payload: any, user: RequestUser) => {
   return transactionResult;
 };
 
-const payAppointment = async (payload: any) => {
+const payAppointment = async (payload: any, user: RequestUser) => {
   const appointmentId = payload.appointmentId;
 
   const existingAppointment = await prisma.appointment.findUnique({
@@ -275,7 +275,7 @@ const cancelAppointment = async (payload: any, user: RequestUser) => {
     }
 
     const bkashRefundPaymentResponse = await fetch(
-      `${config.bkash_base_url}/v2/tokenized-checkout/refund/payment/transaction
+      `${config.bkash_base_url}/tokenized/checkout/payment/refund
 `,
       {
         method: "POST",
@@ -286,9 +286,10 @@ const cancelAppointment = async (payload: any, user: RequestUser) => {
           "X-App-Key": config.bkash_app_key,
         },
         body: JSON.stringify({
-          paymentId: existingAppointment.payment?.bkashPaymentId,
-          trxId: existingAppointment.payment?.bkashTrxId,
-          refundAmount: existingAppointment.payment?.amount,
+          paymentID: existingAppointment.payment?.bkashPaymentId,
+          trxID: existingAppointment.payment?.bkashTrxId,
+          amount: existingAppointment.payment?.amount.toString(),
+          sku: "Appointment Cancellation",
           reason: "Patient Cancelled The Appointment",
         }),
       },
@@ -301,10 +302,12 @@ const cancelAppointment = async (payload: any, user: RequestUser) => {
         appointmentId: existingAppointment.id,
       },
       data: {
-        refundTrxId: bkashRefundPaymentResult.refundTrxId,
+        refundTrxId: bkashRefundPaymentResult.refundTrxID,
         refundedAt: bkashRefundPaymentResult.completedTime,
-        refundAmount: bkashRefundPaymentResult.refundAmount,
-        refundReason: bkashRefundPaymentResult.reason,
+        refundAmount: bkashRefundPaymentResult.amount,
+        refundReason: "Patient Cancelled The Appointment",
+        status: PaymentStatus.REFUNDED,
+        gatewayResponse: bkashRefundPaymentResult,
       },
     });
 
