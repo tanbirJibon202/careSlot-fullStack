@@ -30,6 +30,7 @@
     "google-auth-library": "^11.0.0",
     "http-status": "^2.1.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.6.0",
     "nodemailer": "^9.0.5",
     "pg": "^8.22.0",
     "redis": "^6.2.1",

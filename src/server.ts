@@ -8,6 +8,7 @@ import {
   seedTesterAdmin,
   seedTesterDoctor,
 } from "./app/utils/seed";
+import { deleteUnverifiedDoctors } from "./app/lib/cron";
 
 const PORT = config.port;
 
@@ -15,6 +16,7 @@ const main = async () => {
   try {
     await prisma.$connect();
     console.log("Connected to the database successfully.");
+    
     await redisClient.connect();
     console.log("Redis Connected Successfully.");
 
@@ -24,6 +26,8 @@ const main = async () => {
     await seedSuperAdmin();
     await seedTesterAdmin();
     await seedTesterDoctor();
+
+    await deleteUnverifiedDoctors();
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
