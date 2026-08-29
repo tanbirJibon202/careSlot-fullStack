@@ -10,7 +10,7 @@ import {
 import crypto from "crypto";
 import { redisClient } from "../../lib/redis";
 import path from "path";
-import { trasporter } from "../../lib/nodemailer";
+import { transporter } from "../../lib/nodemailer";
 import ejs from "ejs";
 import {
   IApplyAsDoctorPayload,
@@ -141,7 +141,7 @@ const applyAsDoctor = async (
 
   const html = await ejs.renderFile(templatePath, templateData);
 
-  await trasporter.sendMail({
+  await transporter.sendMail({
     from: config.email_sender,
     to: payload.user.email,
     subject: "Doctor Application - Email Verification",
@@ -247,11 +247,45 @@ const approveDoctor = async (
     },
   });
 
+  const isApproved = verificationStatus === DoctorVerificationStatus.APPROVED;
+
+  const templatePath = path.join(
+    process.cwd(),
+    `src/app/templates/${
+      isApproved
+        ? "doctor-application-approved.ejs"
+        : "doctor-application-rejected.ejs"
+    }`,
+  );
+
+  const templateData = {
+    name: updatedDoctor.name,
+    reason: updatedDoctor.rejectionReason,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: updatedDoctor.email,
+    subject: isApproved
+      ? "Your Doctor Application Has Been Approved"
+      : "Your Doctor Application Has Been Rejected",
+    html,
+  });
+
   return updatedDoctor;
+};
+
+const getAllDoctors = async () => {
+  // search, filter, sorting, pagination
+  const allDoctors = await prisma.doctor.findMany({});
+  return allDoctors;
 };
 
 export const DoctorServices = {
   applyAsDoctor,
   VerifyDoctorEmail,
   approveDoctor,
+  getAllDoctors,
 };

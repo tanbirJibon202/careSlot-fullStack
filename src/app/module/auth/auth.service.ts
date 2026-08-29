@@ -21,7 +21,7 @@ import { googleClient } from "../../lib/googleAuth";
 import { TokenPayload } from "google-auth-library";
 import crypto from "crypto";
 import { redisClient } from "../../lib/redis";
-import { trasporter } from "../../lib/nodemailer";
+import { transporter } from "../../lib/nodemailer";
 import ejs from "ejs";
 import path from "path";
 
@@ -85,7 +85,7 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
 
   const html = await ejs.renderFile(templatePath, templateData);
 
-  await trasporter.sendMail({
+  await transporter.sendMail({
     from: config.email_sender,
     to: email,
     subject: "Email Verification",
@@ -170,7 +170,7 @@ const verifyPatientEmail = async (payload: IVerifyEmailPayload) => {
 
   const html = await ejs.renderFile(templatePath, templateData);
 
-  await trasporter.sendMail({
+  await transporter.sendMail({
     from: config.email_sender,
     to: email,
     subject: "Welcome To Care Slot System",
@@ -422,7 +422,7 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 
         const html = await ejs.renderFile(templatePath, templateData);
 
-        await trasporter.sendMail({
+        await transporter.sendMail({
           from: config.email_sender,
           to: user.email,
           subject: "Welcome To Care Slot System",
@@ -522,7 +522,7 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
 
   const html = await ejs.renderFile(templatePath, templateData);
 
-  await trasporter.sendMail({
+  await transporter.sendMail({
     from: config.email_sender,
     to: isUserExists.email,
     subject: "Forgot Password",
@@ -594,7 +594,7 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 
   const html = await ejs.renderFile(templatePath, templateData);
 
-  await trasporter.sendMail({
+  await transporter.sendMail({
     from: config.email_sender,
     to: isUserExists.email,
     subject: "Password Changed",
