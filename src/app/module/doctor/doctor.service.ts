@@ -3,10 +3,24 @@ import { prisma } from "../../lib/prisma";
 import { cloudinary } from "../../lib/cloudinary";
 import bcrypt from "bcryptjs";
 import config from "../../config";
-import { Role } from "../../../generated/prisma/enums";
+import {
+  DoctorVerificationStatus,
+  Role,
+} from "../../../generated/prisma/enums";
+import crypto from "crypto";
+import { redisClient } from "../../lib/redis";
+import path from "path";
+import { trasporter } from "../../lib/nodemailer";
+import ejs from "ejs";
+import {
+  IApplyAsDoctorPayload,
+  IApproveDoctorPayload,
+  IVerifyDoctorEmailPayload,
+} from "./doctor.interface";
+import { RequestUser } from "../../middleware/checkAuth";
 
 const applyAsDoctor = async (
-  payload: any,
+  payload: IApplyAsDoctorPayload,
   resume: Express.Multer.File | null,
   additionalFiles: Express.Multer.File[],
 ) => {
@@ -85,6 +99,7 @@ const applyAsDoctor = async (
           name: payload.user.name,
           email: payload.user.email,
           ...payload.doctor,
+          experience: payload.doctor.experienceYears,
           resume: resumeUploadResult.secure_url,
           resumePublicId: resumeUploadResult.public_id,
           additionalFiles: additionalFilesUploadResults.map((file) => ({
@@ -99,9 +114,144 @@ const applyAsDoctor = async (
     },
   });
 
+  const expirationSeconds = 60 * 60;
+
+  const otpKey = `doctor-application-otp:${payload.user.email}`;
+
+  const otpValue = crypto.randomInt(100000, 1000000).toString();
+
+  await redisClient.set(otpKey, otpValue, {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
+    },
+  });
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/registration-user-otp.ejs",
+  );
+
+  const templateData = {
+    name: payload.user.name,
+    email: payload.user.email,
+    otp: otpValue,
+    expirationMinutes: expirationSeconds / 60,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await trasporter.sendMail({
+    from: config.email_sender,
+    to: payload.user.email,
+    subject: "Doctor Application - Email Verification",
+    html,
+  });
+
   return doctorApplication;
+};
+
+const VerifyDoctorEmail = async (payload: IVerifyDoctorEmailPayload) => {
+  const otp = payload.otp;
+  const email = payload.email.trim().toLowerCase();
+
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      email,
+      role: Role.DOCTOR,
+    },
+  });
+
+  if (!existingUser) {
+    throw new Error("Doctor Application Not Found. Please Apply Again.");
+  }
+
+  if (existingUser.emailVerified) {
+    throw new Error("Email Already Verified");
+  }
+
+  const otpKey = `doctor-application-otp:${email}`;
+  const redisOtp = await redisClient.get(otpKey);
+
+  if (!redisOtp) {
+    throw new Error(
+      "OTP Expired. Your Application Window Has Closed, Please Apply Again.",
+    );
+  }
+  if (redisOtp !== otp) {
+    throw new Error("OTP Does't Match");
+  }
+
+  await redisClient.del(otpKey);
+
+  const VerifiedUser = await prisma.user.update({
+    where: { id: existingUser.id },
+    data: { emailVerified: true },
+    omit: { password: true },
+    include: { doctor: true },
+  });
+
+  return VerifiedUser;
+};
+
+const approveDoctor = async (
+  payload: IApproveDoctorPayload,
+  reviewer: RequestUser,
+) => {
+  const { doctorId, verificationStatus, rejectionReason } = payload;
+
+  const existingDoctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    include: { user: true },
+  });
+
+  if (!existingDoctor) {
+    throw new Error("Doctor Application Not Found");
+  }
+
+  if (existingDoctor.isDeleted) {
+    throw new Error("Doctor Application Has Been Deleted");
+  }
+
+  if (!existingDoctor.user.emailVerified) {
+    throw new Error(
+      "Doctor Has Not Verified Their Email Yet. Application Cannot Be Reviewed.",
+    );
+  }
+
+  if (existingDoctor.verificationStatus !== DoctorVerificationStatus.PENDING) {
+    throw new Error(
+      `Doctor Application Has Already Been ${existingDoctor.verificationStatus.toLowerCase()}`,
+    );
+  }
+
+  if (
+    verificationStatus === DoctorVerificationStatus.REJECTED &&
+    !rejectionReason
+  ) {
+    throw new Error(
+      "Rejection Reason Is Required When Rejecting A Doctor Application",
+    );
+  }
+
+  const updatedDoctor = await prisma.doctor.update({
+    where: { id: doctorId },
+    data: {
+      verificationStatus,
+      rejectionReason:
+        verificationStatus === DoctorVerificationStatus.REJECTED
+          ? rejectionReason
+          : null,
+      reviewedBy: reviewer.userId,
+      reviewedAt: new Date(),
+    },
+  });
+
+  return updatedDoctor;
 };
 
 export const DoctorServices = {
   applyAsDoctor,
+  VerifyDoctorEmail,
+  approveDoctor,
 };

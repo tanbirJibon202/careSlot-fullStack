@@ -3,6 +3,8 @@ import { DoctorController } from "./doctor.controller";
 import { upload } from "../../lib/multer";
 import { validateRequest } from "../../middleware/validateRequest";
 import { DoctorValidation } from "./doctor.validation";
+import { auth } from "../../middleware/checkAuth";
+import { Role } from "../../../generated/prisma/enums";
 
 const router = Router();
 
@@ -21,4 +23,16 @@ router.post(
   validateRequest(DoctorValidation.ApplyAsDoctorZodSchema),
   DoctorController.applyAsDoctor,
 );
+
+router.post(
+  "/apply-as-doctor/verify-email",
+  DoctorController.VerifyDoctorEmail,
+);
+
+router.post(
+  "/approve-doctor",
+  auth(Role.ADMIN, Role.SUPER_ADMIN),
+  DoctorController.approveDoctor,
+);
+
 export const DoctorRoutes = router;
