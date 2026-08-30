@@ -25,6 +25,7 @@ import { transporter } from "../../lib/nodemailer";
 import ejs from "ejs";
 import path from "path";
 
+
 const registerPatient = async (payload: IRegisterPatientPayload) => {
   const { name, password, patient: patientData } = payload;
 
